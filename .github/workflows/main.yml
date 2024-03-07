@@ -1,0 +1,46 @@
+name: Main
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  terraform:
+    permissions:
+      id-token: write # Needed for GitHub OIDC
+    runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message , 'ci skip')"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          audience: sts.amazonaws.com
+          aws-region: eu-central-1
+          role-to-assume: ${{ secrets.CI_AWS_ROLE_ARN }}
+
+      - uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform fmt
+        id: fmt
+        run: terraform -chdir=./terraform/environments/development fmt -check
+        continue-on-error: true
+
+      - name: Terraform Init
+        id: init
+        run: terraform -chdir=./terraform/environments/development init
+
+      - name: Terraform Validate
+        id: validate
+        run: terraform -chdir=./terraform/environments/development validate
+
+      - name: Terraform Plan
+        id: plan
+        run: terraform -chdir=./terraform/environments/development plan
+        continue-on-error: true
+
+      - name: Terraform Apply
+        id: apply
+        run: terraform -chdir=./terraform/environments/development apply -auto-approve
+        continue-on-error: true
