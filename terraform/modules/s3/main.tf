@@ -1,21 +1,24 @@
-resource "aws_s3_bucket" "bronze" {
-  bucket = "bronze-${var.environment}"
+resource "aws_s3_bucket" "bronze-new" {
+  bucket = "price-watch-bronze-${var.environment}"
+
+  lifecycle {
+    prevent_destroy = true
+  }
+
   tags = {
     "Environment" : "${var.environment}"
   }
-
 }
 
-resource "aws_s3_bucket_lifecycle_configuration" "bronze-lifecycle" {
-  bucket = aws_s3_bucket.bronze.id
+# A place to store the Lambdas
+resource "aws_s3_bucket" "lambda_bucket_new" {
+  bucket = "price-watch-lambda-bucket-${var.environment}"
 
-  rule {
-    id     = "archive"
-    status = "Enabled"
+  lifecycle {
+    prevent_destroy = true
+  }
 
-    transition {
-      days          = 30
-      storage_class = "ONEZONE_IA"
-    }
+  tags = {
+    "Environment" : "${var.environment}"
   }
 }

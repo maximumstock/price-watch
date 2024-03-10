@@ -6,5 +6,7 @@ pkgs.mkShell rec {
     python311
     terraform
     docker-compose
+    awscli2
+    nodejs_18
   ];
 }

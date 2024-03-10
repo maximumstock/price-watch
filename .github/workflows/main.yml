@@ -5,10 +5,12 @@ on:
       - main
 
 jobs:
-  terraform:
+  terraform-dev:
     permissions:
       id-token: write # Needed for GitHub OIDC
     runs-on: ubuntu-latest
+    env:
+      TF_PATH: "./terraform/environments/development"
     if: "!contains(github.event.head_commit.message , 'ci skip')"
     steps:
       - uses: actions/checkout@v4
@@ -24,23 +26,53 @@ jobs:
 
       - name: Terraform fmt
         id: fmt
-        run: terraform -chdir=./terraform/environments/development fmt -check
+        run: terraform -chdir=$TF_PATH fmt -check
         continue-on-error: true
 
       - name: Terraform Init
         id: init
-        run: terraform -chdir=./terraform/environments/development init
+        run: terraform -chdir=$TF_PATH init
 
       - name: Terraform Validate
         id: validate
-        run: terraform -chdir=./terraform/environments/development validate
+        run: terraform -chdir=$TF_PATH validate
 
       - name: Terraform Plan
         id: plan
-        run: terraform -chdir=./terraform/environments/development plan
-        continue-on-error: true
+        run: terraform -chdir=$TF_PATH plan
 
       - name: Terraform Apply
         id: apply
-        run: terraform -chdir=./terraform/environments/development apply -auto-approve
-        continue-on-error: true
+        run: terraform -chdir=$TF_PATH apply -auto-approve
+
+  deploy-lambdas-dev:
+    permissions:
+      id-token: write # Needed for GitHub OIDC
+    if: "!contains(github.event.head_commit.message , 'ci skip')"
+    runs-on: ubuntu-latest
+    needs: [terraform-dev]
+    strategy:
+      matrix:
+        lambda: [health-check, kleinanzeigen]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          audience: sts.amazonaws.com
+          aws-region: eu-central-1
+          role-to-assume: ${{ secrets.CI_AWS_ROLE_ARN }}
+
+      - name: Build Lambda
+        run: cd ./lambdas/${{matrix.lambda}} && npm ci && npm run build
+
+      - name: Zip Lambda
+        run: zip -j ./lambdas/${{matrix.lambda}}.zip ./lambdas/${{matrix.lambda}}/dist/index.cjs
+
+      - name: Deploy Lambda
+        run: aws lambda update-function-code --function-name=price-watch-lambda-${{matrix.lambda}}-development --zip-file=fileb://lambdas/${{matrix.lambda}}.zip
