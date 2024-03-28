@@ -12,3 +12,8 @@ variable "lambda_bucket_id" {
   description = "The id of the bucket to store the Lambda in"
   type        = string
 }
+
+variable "dynamodb_table_arn" {
+  description = "The arn of the DynamoDB table to store offers in"
+  type        = string
+}

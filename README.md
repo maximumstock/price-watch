@@ -2,27 +2,37 @@
 
 - [/] GitHub Actions CI
   - [x] Setup [OIDC](https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/configuring-openid-connect-in-amazon-web-services) so GH can authenticate with AWS
-  - [ ] pushes to `main` should build Lambdas and plan & apply terraform on dev
+  - [x] pushes to `main` should build Lambdas and plan & apply terraform on dev
   - [ ] pushes to `main` with a tag should build Lambdas and plan & apply terraform on prod
   - [ ] terraform state locking
-- [/] AWS Infrastructure via terraform
+- [/] AWS Infrastructure via terraform [Readme](./terraform/README.md)
   - [/] terraform State somewhere (S3)
-  - Problems with deploying the Lambda
+  - [x] have `dev` & `prod` environment
+  - [x] Problems with deploying the Lambda
     - I want to use terraform to manage the infrastructure, but the AWS API, and subsequently terraform, requires you to provide a source artefact when creating a Lambda function, either a local file or an S3 key. But when bootstrapping and creating the Lambda function AWS resource, I might not have a source yet, as I want to build the actual code artefact (Lambda layer or ZIP file) as a later step in my CI/CD pipeline.
     - So there seems to be an chicken-and-egg kind of problem, where the philosophy with terraform is to only manage your infrastructure, but the Lambda artefact is required beforehand. Consensus seems to be that for bootstrapping, you need to provide a dummy file or manually build and upload a dummy payload.
     - References:
       - https://www.reddit.com/r/Terraform/comments/xholp8/how_do_you_manage_your_lambda_code_independently/
       - https://www.ensono.com/insights-and-news/expert-opinions/terraform-does-not-need-your-code-to-provision-a-lambda-function/
-  - [ ] S3 bucket for raw scraping data
-  - [ ] S3 bucket for jobs
-  - [ ] Python Lambda
-    - what Python version can we use?
-    - [ ] GH Pipeline needs to build Lambda package and deploy it
-    - [ ] How to do monitoring between CloudWatch & Lambda
+    - Solution: We set up the Lambda with a dummy zip data archive and use the aws cli to deploy our build artefacts in a later pipeline step
+  - [x] GH Pipeline needs to build Lambda package and deploy it
+  - [x] S3 bronze bucket for raw scraping data
   - [ ] Event Bridge to schedule Lambdas
-  - [ ] have `dev` & `prod` environment
-- [ ] The scraping Python Lambda
-  - [ ] Scrape ebay-kleinanzeigen
+  - [ ] How to do monitoring between CloudWatch & Lambda
+- [/] The scraping Lambda
+  - [x] Scrape ebay-kleinanzeigen (TypeScript)
   - [ ] Scrape mpb
   - [ ] Scrape ebay (optional)
   - [ ] Scrape rebuy (optional)
+- [ ] Data Flow
+  - Lets store all data in delta tables on S3
+  - [?] Where do the Lambdas pipe the data to?
+    - [ ] Option 1: Each Lambda scrapes and writes the data to the respective (bronze) delta table directly
+      - Problem: concurrent writes to the delta tables
+      - Problem: depending on the number of lambdas, we'd do lots of S3 operations
+    - [ ] Option 2: Batch raw scraping via SQS and have a dedicated lambda write data to delta table
+      - more efficient in terms of S3 options
+      - we can ignore concurrent writes and locks for now by having a single writer
+      - we can more easily add a different storage layer by adding another SQS queue & writing lambda
+      - Questions
+        - [?] How often should the S3 delta table writer run: Looks like 5 minutes is the maximum time window that SQS messages can be batched, so 5 minutes it is.
