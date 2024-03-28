@@ -6,13 +6,17 @@ resource "aws_lambda_function" "lambda" {
   function_name = "price-watch-lambda-${var.lambda_name}-${var.environment}"
   role          = aws_iam_role.iam_for_lambda.arn
 
-  handler  = "index.handler"
-  filename = data.archive_file.lambda_dummy.output_path
-  runtime  = "nodejs18.x"
+  handler     = "index.handler"
+  filename    = data.archive_file.lambda_dummy.output_path
+  runtime     = "nodejs18.x"
+  timeout     = 300
+  memory_size = 256
 
   environment {
     variables = {
-      Environment = "${var.environment}"
+      ENVIRONMENT       = "${var.environment}"
+      SOURCE_EMAIL      = "${var.source_email}"
+      DESTINATION_EMAIL = "${var.destination_email}"
     }
   }
 }
@@ -84,4 +88,77 @@ resource "aws_iam_policy" "lambda_logging" {
 resource "aws_iam_role_policy_attachment" "lambda_logs" {
   role       = aws_iam_role.iam_for_lambda.name
   policy_arn = aws_iam_policy.lambda_logging.arn
+}
+
+# Access to DynamoDB for the Lambda
+data "aws_iam_policy_document" "lambda_dynamodb" {
+  statement {
+    sid    = "ListAndDescribe"
+    effect = "Allow"
+    actions = [
+      "dynamodb:List*",
+      "dynamodb:DescribeReservedCapacity*",
+      "dynamodb:DescribeLimits",
+      "dynamodb:DescribeTimeToLive"
+    ]
+
+    resources = ["*"]
+  }
+
+  statement {
+    sid    = "SeenOffersTableAccess"
+    effect = "Allow"
+    actions = [
+      "dynamodb:BatchGet*",
+      "dynamodb:DescribeStream",
+      "dynamodb:DescribeTable",
+      "dynamodb:Get*",
+      "dynamodb:Query",
+      "dynamodb:Scan",
+      "dynamodb:BatchWrite*",
+      "dynamodb:CreateTable",
+      "dynamodb:Delete*",
+      "dynamodb:Update*",
+      "dynamodb:PutItem"
+    ]
+
+    resources = [var.dynamodb_table_arn]
+  }
+}
+
+resource "aws_iam_policy" "lambda_dynamodb" {
+  name        = "price-watch-iam-policy-${var.lambda_name}-lambda-dynamodb-${var.environment}"
+  path        = "/"
+  description = "IAM policy for accessing seen offer DynamoDB table from a lambda"
+  policy      = data.aws_iam_policy_document.lambda_dynamodb.json
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_dynamodb" {
+  role       = aws_iam_role.iam_for_lambda.name
+  policy_arn = aws_iam_policy.lambda_dynamodb.arn
+}
+
+# Access to SES for the Lambda
+data "aws_iam_policy_document" "lambda_ses" {
+  statement {
+    sid    = "Email"
+    effect = "Allow"
+    actions = [
+      "ses:SendEmail",
+      "ses:SendRawEmail"
+    ]
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_policy" "lambda_ses" {
+  name        = "price-watch-iam-policy-${var.lambda_name}-lambda-ses-${var.environment}"
+  path        = "/"
+  description = "IAM policy for sending emails via SES from a lambda"
+  policy      = data.aws_iam_policy_document.lambda_ses.json
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_ses" {
+  role       = aws_iam_role.iam_for_lambda.name
+  policy_arn = aws_iam_policy.lambda_ses.arn
 }

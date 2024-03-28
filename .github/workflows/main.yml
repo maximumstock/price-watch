@@ -11,6 +11,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       TF_PATH: "./terraform/environments/development"
+      TF_VAR_source_email: ${{ secrets.TF_VAR_source_email }}
+      TF_VAR_destination_email: ${{ secrets.TF_VAR_destination_email }}
     if: "!contains(github.event.head_commit.message , 'ci skip')"
     steps:
       - uses: actions/checkout@v4
@@ -19,7 +21,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           audience: sts.amazonaws.com
-          aws-region: eu-central-1
+          aws-region: ${{ secrets.TF_VAR_aws_region }}
           role-to-assume: ${{ secrets.CI_AWS_ROLE_ARN }}
 
       - uses: hashicorp/setup-terraform@v3
