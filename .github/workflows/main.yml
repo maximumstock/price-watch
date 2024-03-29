@@ -11,8 +11,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       TF_PATH: "./terraform/environments/development"
-      TF_VAR_source_email: ${{ secrets.TF_VAR_source_email }}
-      TF_VAR_destination_email: ${{ secrets.TF_VAR_destination_email }}
+      TF_VAR_source_email: ${{ secrets.TF_VAR_SOURCE_EMAIL }}
+      TF_VAR_destination_emails: '${{ secrets.TF_VAR_DESTINATION_EMAILS }}'
     if: "!contains(github.event.head_commit.message , 'ci skip')"
     steps:
       - uses: actions/checkout@v4

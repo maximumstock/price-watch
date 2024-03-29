@@ -14,9 +14,9 @@ resource "aws_lambda_function" "lambda" {
 
   environment {
     variables = {
-      ENVIRONMENT       = "${var.environment}"
-      SOURCE_EMAIL      = "${var.source_email}"
-      DESTINATION_EMAIL = "${var.destination_email}"
+      ENVIRONMENT        = "${var.environment}"
+      SOURCE_EMAIL       = "${var.source_email}"
+      DESTINATION_EMAILS = jsonencode(var.destination_emails)
     }
   }
 }

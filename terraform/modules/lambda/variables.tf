@@ -23,7 +23,7 @@ variable "source_email" {
   type        = string
 }
 
-variable "destination_email" {
-  description = "The email address to send notifications to"
-  type        = string
+variable "destination_emails" {
+  description = "The email addresses to send notifications to"
+  type        = list(string)
 }

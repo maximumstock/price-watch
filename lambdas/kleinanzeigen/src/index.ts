@@ -10,7 +10,8 @@ import * as crypto from "crypto";
 
 const AWS_REGION = process.env.AWS_REGION;
 const SOURCE_EMAIL = process.env.SOURCE_EMAIL;
-const DESTINATION_EMAIL = process.env.DESTINATION_EMAIL;
+const DESTINATION_EMAILS: string[] =
+  process.env.DESTINATION_EMAILS && JSON.parse(process.env.DESTINATION_EMAILS);
 
 const BASE = "https://www.kleinanzeigen.de";
 const SEARCH = "s-nikon-z";
@@ -26,7 +27,9 @@ const DYNAMODB_TABLE_NAME = "SeenOffersV1";
 const DYNAMODB_PARTITION_KEY = `kleinanzeigen-${SEARCH}`;
 
 export const handler = async (event: any): Promise<any> => {
-  if (!AWS_REGION || !SOURCE_EMAIL || !DESTINATION_EMAIL) {
+  console.log("New Event:", JSON.stringify(event, null, 2));
+
+  if (!AWS_REGION || !SOURCE_EMAIL || !DESTINATION_EMAILS) {
     console.error(
       "[Error] Missing environment variables: AWS_REGION, SOURCE_EMAIL, DESTINATION_EMAIL"
     );
@@ -112,9 +115,9 @@ async function notifySubscribers(
 
   await sesClient.send(
     new SendEmailCommand({
-      Source: "mxmlnstock@gmail.com",
+      Source: SOURCE_EMAIL,
       Destination: {
-        ToAddresses: ["mxmlnstock@gmail.com"],
+        ToAddresses: DESTINATION_EMAILS,
       },
       Message: {
         Body: {
