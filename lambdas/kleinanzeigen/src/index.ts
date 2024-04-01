@@ -246,7 +246,7 @@ export function parseOffers(rawBody: string): Offer[] {
 
       return <Offer>{
         id,
-        srcUrl: elem.attribs["data-href"]?.stripText(),
+        srcUrl: `https://kleinanzeigen.de/${elem.attribs["data-href"]?.stripText()}`,
         innerHtml: $(elem).html(),
         thumbnailUrl,
         timestamp,
