@@ -7,6 +7,6 @@ pkgs.mkShell rec {
     terraform
     docker-compose
     awscli2
-    nodejs_18
+    nodejs_20
   ];
 }

@@ -63,7 +63,7 @@ export const handler = async (event: any): Promise<any> => {
     parsedOffers
   );
 
-  await notifySubscribers(sesClient, newHashes, newOffers);
+  await notifySubscribers(sesClient, newOffers);
 
   return {
     statusCode: 200,
@@ -103,11 +103,7 @@ async function determineNewOffers(
   return { newHashes, newOffers };
 }
 
-async function notifySubscribers(
-  sesClient: SESClient,
-  newHashes: string[],
-  newOffers: Offer[]
-) {
+async function notifySubscribers(sesClient: SESClient, newOffers: Offer[]) {
   if (newOffers.length === 0) {
     console.log("[Info] No new offers to notify about");
     return;
@@ -124,7 +120,7 @@ async function notifySubscribers(
           Html: {
             Data: `
             <body>
-            <h1>${newHashes.length} New Offers</h1>
+            <h1>${newOffers.length} New Offers</h1>
             <ul>
             ${newOffers
               .map(
@@ -246,7 +242,9 @@ export function parseOffers(rawBody: string): Offer[] {
 
       return <Offer>{
         id,
-        srcUrl: `https://kleinanzeigen.de/${elem.attribs["data-href"]?.stripText()}`,
+        srcUrl: `https://kleinanzeigen.de/${elem.attribs[
+          "data-href"
+        ]?.stripText()}`,
         innerHtml: $(elem).html(),
         thumbnailUrl,
         timestamp,
@@ -360,8 +358,6 @@ async function fetchSeenOffersSet(
     })
   );
 
-  seenOffers.Item;
-
   if (
     seenOffers.Item?.Value == null ||
     typeof seenOffers.Item?.Value !== "string"
@@ -374,4 +370,8 @@ async function fetchSeenOffersSet(
     acc.add(hash);
     return acc;
   }, new Set<string>());
+}
+
+function notifySqs(sqsClient: any, newOffers: Offer[]) {
+  throw new Error("Function not implemented.");
 }
