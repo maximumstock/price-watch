@@ -1,3 +1,4 @@
 .terraform*
 terraform.tfstate*
+terraform/modules/lambda/lambda_function_payload.zip
 dist

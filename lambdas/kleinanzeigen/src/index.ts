@@ -7,6 +7,7 @@ import {
 } from "@aws-sdk/lib-dynamodb";
 import * as Cheerio from "cheerio";
 import * as crypto from "crypto";
+import "../../shared";
 
 const AWS_REGION = process.env.AWS_REGION;
 const SOURCE_EMAIL = process.env.SOURCE_EMAIL;
@@ -242,7 +243,7 @@ export function parseOffers(rawBody: string): Offer[] {
 
       return <Offer>{
         id,
-        srcUrl: `https://kleinanzeigen.de/${elem.attribs[
+        srcUrl: `https://kleinanzeigen.de${elem.attribs[
           "data-href"
         ]?.stripText()}`,
         innerHtml: $(elem).html(),
@@ -263,25 +264,6 @@ export function parseOffers(rawBody: string): Offer[] {
 
   return offers;
 }
-
-declare global {
-  interface String {
-    stripText(): string;
-    clearNewLines(): string;
-  }
-}
-
-String.prototype.stripText = function stripText(): string {
-  return this.split(" ")
-    .filter((a) => a.length)
-    .join(" ");
-};
-
-String.prototype.clearNewLines = function clearNewLines(): string {
-  return this.split("\n")
-    .filter((a) => a.length)
-    .join(" ");
-};
 
 type Url = string;
 
