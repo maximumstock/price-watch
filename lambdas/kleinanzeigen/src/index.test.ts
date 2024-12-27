@@ -1,5 +1,5 @@
-import { handler, parseOffers } from ".";
 import fs from "fs";
+import { handler, parseOffers } from "./index";
 
 describe("kleinanzeigen", () => {
   const fixture: string = fs
@@ -7,7 +7,7 @@ describe("kleinanzeigen", () => {
     .toString();
 
   describe("parseOffers", () => {
-    it("extracts offers from search result HTML", () => {
+    it("should parse offers from raw search result HTML", () => {
       const offers = parseOffers(fixture);
       expect(Array.isArray(offers)).toEqual(true);
       expect(offers).toHaveLength(25);
@@ -447,7 +447,8 @@ describe("kleinanzeigen", () => {
   });
 
   describe("handler", () => {
-    it("extracts offers from search result HTML", async () => {
+    it("should not throw", async () => {
+      process.env;
       expect(async () => await handler(null)).not.toThrow();
     });
   });

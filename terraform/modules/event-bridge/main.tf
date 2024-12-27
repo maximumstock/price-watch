@@ -1,5 +1,8 @@
 resource "aws_scheduler_schedule" "scrape-schedule" {
-  name = "scrape-schedule"
+
+  for_each = { for index, task in var.tasks : index => task }
+
+  name = "scrape-schedule-${each.key}"
 
   flexible_time_window {
     mode = "OFF"
@@ -12,13 +15,7 @@ resource "aws_scheduler_schedule" "scrape-schedule" {
     role_arn = aws_iam_role.iam_for_schedule.arn
 
     # See https://docs.aws.amazon.com/scheduler/latest/UserGuide/managing-targets-universal.html
-    input = jsonencode({
-      FunctionName   = var.lambda_arn,
-      InvocationType = "Event",
-      Payload = jsonencode({
-        "searchQuery" : var.search_query,
-      })
-    })
+    input = jsonencode(each.value)
   }
 }
 

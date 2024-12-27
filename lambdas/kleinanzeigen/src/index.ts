@@ -8,29 +8,30 @@ import {
 import * as Cheerio from "cheerio";
 import * as crypto from "crypto";
 import "../../shared";
+import { Context } from "aws-lambda";
+import { validateInputEvent } from "../../shared";
 
-const AWS_REGION = process.env.AWS_REGION;
+const AWS_REGION = process.env.AWS_REGION || "eu-central-1";
 const SOURCE_EMAIL = process.env.SOURCE_EMAIL;
-const DESTINATION_EMAILS: string[] =
-  process.env.DESTINATION_EMAILS && JSON.parse(process.env.DESTINATION_EMAILS);
-
-const BASE = "https://www.kleinanzeigen.de";
-const SEARCH = "s-nikon-z";
-const URL = `${BASE}/${SEARCH}/k0`;
 
 /**
  * The limit on the number of items we store in a hash string in DynamoDB.
  *
  * Derives from the 400KiB DynamoDB item limit divided by 33B (32B hash + `#` separator) and some conservative rounding.
  */
-const DYNAMODB_HASH_ITEM_LIMIT = 12_500;
+const DYNAMODB_HASH_ITEM_LIMIT = 12_000;
 const DYNAMODB_TABLE_NAME = "SeenOffersV1";
-const DYNAMODB_PARTITION_KEY = `kleinanzeigen-${SEARCH}`;
 
-export const handler = async (event: any): Promise<any> => {
-  console.log("New Event:", JSON.stringify(event, null, 2));
+// TODO: integrate the right payload types and event payload validation
+export const handler = async (
+  inputEvent: InputEvent,
+  context: Context
+): Promise<any> => {
+  console.log("New Event:", JSON.stringify(inputEvent, null, 2));
 
-  if (!AWS_REGION || !SOURCE_EMAIL || !DESTINATION_EMAILS) {
+  const event = validateInputEvent(inputEvent);
+
+  if (!AWS_REGION || !SOURCE_EMAIL) {
     console.error(
       "[Error] Missing environment variables: AWS_REGION, SOURCE_EMAIL, DESTINATION_EMAIL"
     );
@@ -40,13 +41,7 @@ export const handler = async (event: any): Promise<any> => {
   const dynamoDBClient = DynamoDBDocumentClient.from(new DynamoDBClient());
   const sesClient = new SESClient({ region: AWS_REGION });
 
-  console.log(`[Info] Fetching ${URL}`);
-  const response = await fetch(URL, {
-    headers: { "User-Agent": getRandomUserAgent() },
-  });
-
-  const body = await response.text();
-  console.log(`[Info] Fetched ${body.length} chars for ${URL}`);
+  const { response, body } = await fetchHtml(event.searchQuery);
 
   if (response.status >= 400) {
     console.error(
@@ -61,10 +56,15 @@ export const handler = async (event: any): Promise<any> => {
 
   const { newHashes, newOffers } = await determineNewOffers(
     dynamoDBClient,
+    event.searchQuery,
     parsedOffers
   );
 
-  await notifySubscribers(sesClient, newOffers);
+  const emailTargets = event.notifications
+    .filter((n) => n.type === "email")
+    .map((n) => n.targets)
+    .flat();
+  await sendEmailNotifications(sesClient, emailTargets, newHashes, newOffers);
 
   return {
     statusCode: 200,
@@ -72,10 +72,26 @@ export const handler = async (event: any): Promise<any> => {
   };
 };
 
+async function fetchHtml(searchQuery: string) {
+  const BASE = "https://www.kleinanzeigen.de";
+  const URL = `${BASE}/${searchQuery}/k0`;
+  console.log(`[Info] Fetching ${URL}`);
+
+  const response = await fetch(URL, {
+    headers: { "User-Agent": getRandomUserAgent() },
+  });
+
+  const body = await response.text();
+  console.log(`[Info] Fetched ${body.length} chars for ${URL}`);
+  return { response, body };
+}
+
 async function determineNewOffers(
   dynamoDb: DynamoDBDocumentClient,
+  searchQuery: string,
   parsed: Offer[]
 ) {
+  const DYNAMODB_PARTITION_KEY = `kleinanzeigen-${searchQuery}`;
   const existingHashes = await fetchSeenOffersSet(
     dynamoDb,
     DYNAMODB_PARTITION_KEY
@@ -104,7 +120,12 @@ async function determineNewOffers(
   return { newHashes, newOffers };
 }
 
-async function notifySubscribers(sesClient: SESClient, newOffers: Offer[]) {
+async function sendEmailNotifications(
+  sesClient: SESClient,
+  destinationEmails: string[],
+  newHashes: string[],
+  newOffers: Offer[]
+) {
   if (newOffers.length === 0) {
     console.log("[Info] No new offers to notify about");
     return;
@@ -114,7 +135,7 @@ async function notifySubscribers(sesClient: SESClient, newOffers: Offer[]) {
     new SendEmailCommand({
       Source: SOURCE_EMAIL,
       Destination: {
-        ToAddresses: DESTINATION_EMAILS,
+        ToAddresses: destinationEmails,
       },
       Message: {
         Body: {

@@ -13,7 +13,10 @@ variable "lambda_name" {
   type        = string
 }
 
-variable "search_query" {
-  description = "The search query to call the Lambda function with. This will be passed as an input to the Lambda function."
-  type        = string
+variable "tasks" {
+  description = "A list of search tasks"
+  type = list(object({
+    searchQuery : string,
+    notifications : list(any)
+  }))
 }
