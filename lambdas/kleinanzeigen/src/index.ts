@@ -5,14 +5,13 @@ import {
   GetCommand,
   PutCommand,
 } from "@aws-sdk/lib-dynamodb";
+import { Context } from "aws-lambda";
 import * as Cheerio from "cheerio";
 import * as crypto from "crypto";
-import "../../shared";
-import { Context } from "aws-lambda";
-import { validateInputEvent } from "../../shared";
 
-const AWS_REGION = process.env.AWS_REGION || "eu-central-1";
-const SOURCE_EMAIL = process.env.SOURCE_EMAIL;
+import "../../shared/src/lib.d";
+import { validateInputEvent } from "../../shared/src/event";
+import { Configuration, readConfigFromEnv } from "../../shared/src/config";
 
 /**
  * The limit on the number of items we store in a hash string in DynamoDB.
@@ -22,39 +21,31 @@ const SOURCE_EMAIL = process.env.SOURCE_EMAIL;
 const DYNAMODB_HASH_ITEM_LIMIT = 12_000;
 const DYNAMODB_TABLE_NAME = "SeenOffersV1";
 
-// TODO: integrate the right payload types and event payload validation
 export const handler = async (
   inputEvent: InputEvent,
   context: Context
 ): Promise<any> => {
+  // Framework part
+  const configuration = readConfigFromEnv();
   console.log("New Event:", JSON.stringify(inputEvent, null, 2));
-
   const event = validateInputEvent(inputEvent);
-
-  if (!AWS_REGION || !SOURCE_EMAIL) {
-    console.error(
-      "[Error] Missing environment variables: AWS_REGION, SOURCE_EMAIL, DESTINATION_EMAIL"
-    );
-    return 500;
-  }
-
   const dynamoDBClient = DynamoDBDocumentClient.from(new DynamoDBClient());
-  const sesClient = new SESClient({ region: AWS_REGION });
+  const sesClient = new SESClient({ region: configuration.awsRegion });
 
+  // Lambda-specific part
   const { response, body } = await fetchHtml(event.searchQuery);
 
   if (response.status >= 400) {
-    console.error(
-      `[Error] Response Status ${response.status} - ${
-        body ? body.slice(0, 200) + "..." : "empty body"
-      }`
-    );
-    return 500;
+    const error = `[Error] Response Status ${response.status} - ${
+      body ? body.slice(0, 200) + "..." : "empty body"
+    }`;
+    console.error(error);
+    return;
   }
 
   const parsedOffers = parseOffers(body);
 
-  const { newHashes, newOffers } = await determineNewOffers(
+  const newOffers = await determineNewOffers(
     dynamoDBClient,
     event.searchQuery,
     parsedOffers
@@ -64,12 +55,12 @@ export const handler = async (
     .filter((n) => n.type === "email")
     .map((n) => n.targets)
     .flat();
-  await sendEmailNotifications(sesClient, emailTargets, newHashes, newOffers);
-
-  return {
-    statusCode: 200,
-    body: JSON.stringify(parsedOffers, null, 2),
-  };
+  await sendEmailNotifications(
+    configuration,
+    sesClient,
+    emailTargets,
+    newOffers
+  );
 };
 
 async function fetchHtml(searchQuery: string) {
@@ -117,13 +108,13 @@ async function determineNewOffers(
   );
   console.log(`[Info] Wrote ${newHashes.length} new offers`);
 
-  return { newHashes, newOffers };
+  return newOffers;
 }
 
 async function sendEmailNotifications(
+  configuration: Configuration,
   sesClient: SESClient,
   destinationEmails: string[],
-  newHashes: string[],
   newOffers: Offer[]
 ) {
   if (newOffers.length === 0) {
@@ -133,7 +124,7 @@ async function sendEmailNotifications(
 
   await sesClient.send(
     new SendEmailCommand({
-      Source: SOURCE_EMAIL,
+      Source: configuration.sourceEmail,
       Destination: {
         ToAddresses: destinationEmails,
       },
