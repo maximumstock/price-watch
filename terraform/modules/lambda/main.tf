@@ -60,7 +60,8 @@ data "aws_iam_policy_document" "assume_role" {
 
 # CloudWatch Log Group
 resource "aws_cloudwatch_log_group" "log_group" {
-  name = "/aws/lambda/${var.lambda_name}-${var.environment}"
+  name              = "/aws/lambda/${var.lambda_name}-${var.environment}"
+  retention_in_days = 3
 }
 
 data "aws_iam_policy_document" "lambda_logging" {
