@@ -8,7 +8,7 @@ resource "aws_scheduler_schedule" "scrape-schedule" {
     mode = "OFF"
   }
 
-  schedule_expression = "rate(2 minutes)"
+  schedule_expression = "rate(${each.value.rateInMinutes} minutes)"
 
   target {
     arn      = var.lambda_arn

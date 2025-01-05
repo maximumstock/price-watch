@@ -17,6 +17,8 @@ variable "tasks" {
   description = "A list of search tasks"
   type = list(object({
     searchQuery : string,
+    rateInMinutes : string,
+    storeForAnalytics : bool,
     notifications : list(any)
   }))
 }
