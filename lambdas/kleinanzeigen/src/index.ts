@@ -1,5 +1,6 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses";
+import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import {
   DynamoDBDocumentClient,
   GetCommand,
@@ -10,8 +11,11 @@ import * as Cheerio from "cheerio";
 import * as crypto from "crypto";
 
 import "../../shared/src/lib.d";
-import { validateInputEvent } from "../../shared/src/event";
+import { InputEvent, validateInputEvent } from "../../shared/src/event";
 import { Configuration, readConfigFromEnv } from "../../shared/src/config";
+import { ParquetSchema, ParquetTransformer } from "parquets";
+import { gzipSync } from "zlib";
+import { Readable } from "stream";
 
 /**
  * The limit on the number of items we store in a hash string in DynamoDB.
@@ -31,6 +35,7 @@ export const handler = async (
   const event = validateInputEvent(inputEvent);
   const dynamoDBClient = DynamoDBDocumentClient.from(new DynamoDBClient());
   const sesClient = new SESClient({ region: configuration.awsRegion });
+  const s3Client = new S3Client();
 
   // Lambda-specific part
   const { response, body } = await fetchHtml(event.searchQuery);
@@ -61,6 +66,21 @@ export const handler = async (
     emailTargets,
     newOffers
   );
+
+  if (inputEvent.storeForAnalytics && newOffers.length !== 0) {
+    await storeOffersForAnalytics(
+      configuration,
+      s3Client,
+      inputEvent,
+      newOffers
+    );
+    await storeParquetOffersForAnalytics(
+      configuration,
+      s3Client,
+      inputEvent,
+      newOffers
+    );
+  }
 };
 
 async function fetchHtml(searchQuery: string) {
@@ -120,6 +140,12 @@ async function sendEmailNotifications(
   if (newOffers.length === 0) {
     console.log("[Info] No new offers to notify about");
     return;
+  }
+
+  if (destinationEmails.length === 0) {
+    throw new Error(
+      "Cannot send email notifications with empty destinationEmails list"
+    );
   }
 
   await sesClient.send(
@@ -368,4 +394,87 @@ async function fetchSeenOffersSet(
 
 function notifySqs(sqsClient: any, newOffers: Offer[]) {
   throw new Error("Function not implemented.");
+}
+
+async function storeOffersForAnalytics(
+  configuration: Configuration,
+  s3Client: S3Client,
+  inputEvent: InputEvent,
+  newOffers: Offer[]
+) {
+  console.log(`[Info] Beginning analytics storage dump...`);
+
+  const jsonLineString = newOffers.map((o) => JSON.stringify(o)).join("\n");
+  const zipped = gzipSync(jsonLineString);
+
+  // TODO parquet
+  const prefix =
+    inputEvent.analyticsS3Prefix ??
+    `kleinanzeigen/${inputEvent.analyticsS3Prefix ?? inputEvent.searchQuery}`;
+  const filename = `${new Date().toISOString()}.jsonl.gz`;
+  const key = `${prefix}/${filename}`;
+
+  const command = new PutObjectCommand({
+    Bucket: configuration.analyticsS3Bucket,
+    Key: key,
+    Body: zipped,
+  });
+  const response = await s3Client.send(command);
+
+  console.log(
+    `[Info] Finished analytics storage dump with status code ${response.$metadata.httpStatusCode}`
+  );
+}
+
+async function storeParquetOffersForAnalytics(
+  configuration: Configuration,
+  s3Client: S3Client,
+  inputEvent: InputEvent,
+  newOffers: Offer[]
+) {
+  console.log(`[Info] Beginning analytics parquet storage dump...`);
+  const parquetSchema = new ParquetSchema({
+    id: { type: "UTF8" },
+    innerHtml: { type: "UTF8" },
+    srcUrl: { type: "UTF8" },
+    thumbnailUrl: { type: "UTF8" },
+    location: { type: "UTF8" },
+    productName: { type: "UTF8" },
+    description: { type: "UTF8" },
+    price: { type: "UTF8" },
+    priceRaw: { type: "UTF8" },
+    timestamp: { type: "UTF8" },
+    createdAt: { type: "TIMESTAMP_MILLIS" },
+    source: { type: "UTF8" },
+  });
+
+  try {
+    const prefix =
+      inputEvent.analyticsS3Prefix ??
+      `kleinanzeigen/${inputEvent.analyticsS3Prefix ?? inputEvent.searchQuery}`;
+    const filename = `${new Date().toISOString()}.jsonl.gz`;
+    const key = `${prefix}/${filename}`;
+
+    const newOfferStream = Readable.from(newOffers);
+    const parquetStream = newOfferStream.pipe(
+      new ParquetTransformer(parquetSchema)
+    );
+
+    // todo: add gzip stream
+    // todo: use a more up-to-date parquet implementation
+    const command = new PutObjectCommand({
+      Bucket: configuration.analyticsS3Bucket,
+      Key: key,
+      Body: parquetStream,
+    });
+    const response = await s3Client.send(command);
+
+    console.log(
+      `[Info] Finished analytics parquet storage dump with status code ${response.$metadata.httpStatusCode}`
+    );
+  } catch (e) {
+    console.error(
+      `[error] Encountered ${JSON.stringify(e)} during parquet analytics dump`
+    );
+  }
 }

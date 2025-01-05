@@ -19,6 +19,7 @@ variable "tasks" {
     searchQuery : string,
     rateInMinutes : string,
     storeForAnalytics : bool,
+    analyticsS3Prefix : optional(string),
     notifications : list(any)
   }))
 }

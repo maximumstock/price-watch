@@ -3,6 +3,9 @@ import { z } from "zod";
 export interface InputEvent {
   searchQuery: string;
   notifications: Notification[];
+  rateInMinutes: string;
+  storeForAnalytics: boolean;
+  analyticsS3Prefix?: string;
 }
 
 export type Notification = {
@@ -18,6 +21,9 @@ export const NotificationSchema = z.object({
 export const InputEventSchema = z.object({
   searchQuery: z.string().nonempty(),
   notifications: z.array(NotificationSchema),
+  rateInMinutes: z.string().nonempty(),
+  storeForAnalytics: z.boolean(),
+  analyticsS3Prefix: z.string().nullable().optional(),
 });
 
 export function validateInputEvent(input: any) {

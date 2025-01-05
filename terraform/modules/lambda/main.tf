@@ -14,8 +14,9 @@ resource "aws_lambda_function" "lambda" {
 
   environment {
     variables = {
-      ENVIRONMENT  = "${var.environment}"
-      SOURCE_EMAIL = "${var.source_email}"
+      ENVIRONMENT         = "${var.environment}"
+      SOURCE_EMAIL        = "${var.source_email}"
+      ANALYTICS_S3_BUCKET = "${var.analytics_s3_bucket}"
     }
   }
 }
