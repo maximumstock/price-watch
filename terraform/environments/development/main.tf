@@ -5,9 +5,13 @@ locals {
 }
 
 module "s3" {
-  source      = "../../modules/s3"
-  environment = local.environment
+  source          = "../../modules/s3"
+  environment     = local.environment
+  lambda_role_arn = module.lambda-kleinanzeigen.lambda_role_arn
 }
+
+// TODO: extract `module.lambda-kleinanzeigen.lambda_role_arn` to be a single role for all Lambas
+// and pass it as an argument to the Lambda module calls.
 
 module "dynamodb" {
   source      = "../../modules/dynamodb"

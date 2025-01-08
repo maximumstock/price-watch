@@ -211,92 +211,90 @@ export function parseOffers(rawBody: string): Offer[] {
   );
 
   const now = new Date();
-  const offers: Offer[] = adItems
-    .map((_idx, elem) => {
-      const id = elem.attribs["data-adid"].trim();
+  const offers: Offer[] = [];
 
-      // Find thumbnailUrl
-      const thumbnailUrl = $(
-        `article.aditem[data-adid='${id}'] div.imagebox img`
-      )
-        .first()
-        .get(0)
-        ?.attribs["src"].trim()
-        .stripText();
+  adItems.toArray().forEach((elem, _idx) => {
+    const id = elem.attribs["data-adid"].trim();
 
-      // Find location
-      const location = $(
-        `article.aditem[data-adid='${id}'] div.aditem-main--top--left`
-      )
-        .text()
-        .trim()
-        .stripText();
+    // Find thumbnailUrl
+    const thumbnailUrl = $(`article.aditem[data-adid='${id}'] div.imagebox img`)
+      .first()
+      .get(0)
+      ?.attribs["src"].trim()
+      .stripText();
 
-      // Find timestamp
-      const timestamp = $(
-        `article.aditem[data-adid='${id}'] div.aditem-main--top--right`
-      )
-        .text()
-        .trim()
-        .stripText();
+    // Find location
+    const location = $(
+      `article.aditem[data-adid='${id}'] div.aditem-main--top--left`
+    )
+      .text()
+      .trim()
+      .stripText();
 
-      // Find product
-      const productName = $(
-        `article.aditem[data-adid='${id}'] div.aditem-main--middle h2`
-      )
-        .text()
-        .trim()
-        .clearNewLines()
-        .stripText();
+    // Find timestamp
+    const timestamp = $(
+      `article.aditem[data-adid='${id}'] div.aditem-main--top--right`
+    )
+      .text()
+      .trim()
+      .stripText();
 
-      // Find description
-      const description = $(
-        `article.aditem[data-adid='${id}'] div.aditem-main--middle p.aditem-main--middle--description`
-      )
-        .text()
-        .trim()
-        .stripText();
+    // Find product
+    const productName = $(
+      `article.aditem[data-adid='${id}'] div.aditem-main--middle h2`
+    )
+      .text()
+      .trim()
+      .clearNewLines()
+      .stripText();
 
-      // Find price
-      const price = $(
-        `article.aditem[data-adid='${id}'] div.aditem-main--middle div.aditem-main--middle--price-shipping`
-      )
-        .text()
-        .trim()
-        .stripText();
+    // Find description
+    const description = $(
+      `article.aditem[data-adid='${id}'] div.aditem-main--middle p.aditem-main--middle--description`
+    )
+      .text()
+      .trim()
+      .stripText();
 
-      // We probably hit some separator elements here
-      if (
-        [
-          thumbnailUrl,
-          location,
-          timestamp,
-          productName,
-          description,
-          price,
-        ].every((e) => !e)
-      ) {
-        return null;
-      }
+    // Find price
+    const price = $(
+      `article.aditem[data-adid='${id}'] div.aditem-main--middle div.aditem-main--middle--price-shipping`
+    )
+      .text()
+      .trim()
+      .stripText();
 
-      return <Offer>{
-        id,
-        srcUrl: `https://kleinanzeigen.de${elem.attribs[
-          "data-href"
-        ]?.stripText()}`,
-        innerHtml: $(elem).html(),
+    // We probably hit some separator elements here
+    if (
+      [
         thumbnailUrl,
-        timestamp,
         location,
+        timestamp,
         productName,
         description,
-        price: price.split("€")[0].trim() + " €",
-        priceRaw: price,
-        createdAt: now,
-      };
-    })
-    .toArray()
-    .filter((o) => !!o);
+        price,
+      ].every((e) => !e)
+    ) {
+      return;
+    }
+
+    offers.push({
+      id,
+      srcUrl: `https://kleinanzeigen.de${elem.attribs[
+        "data-href"
+      ]?.stripText()}`,
+      innerHtml: $(elem).html()!,
+      thumbnailUrl,
+      timestamp,
+      location,
+      productName,
+      description,
+      price: price.split("€")[0].trim() + " €",
+      priceRaw: price,
+      createdAt: now,
+      source: "kleinanzeigen",
+    });
+  });
 
   console.log(`[Info] Found ${offers.length} offers`);
 
@@ -445,7 +443,7 @@ async function storeParquetOffersForAnalytics(
     priceRaw: { type: "UTF8" },
     timestamp: { type: "UTF8" },
     createdAt: { type: "TIMESTAMP_MILLIS" },
-    source: { type: "UTF8" },
+    source: { type: "UTF8", optional: true },
   });
 
   try {
