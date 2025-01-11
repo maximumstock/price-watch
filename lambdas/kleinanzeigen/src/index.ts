@@ -442,12 +442,8 @@ async function storeParquetOffersForAnalytics(
     price: { type: "UTF8", compression: "SNAPPY" },
     priceRaw: { type: "UTF8", compression: "SNAPPY" },
     timestamp: { type: "UTF8", compression: "SNAPPY" },
-    createdAt: {
-      type: "TIMESTAMP_MILLIS",
-      compression: "SNAPPY",
-      encoding: "RLE",
-    },
-    source: { type: "UTF8", compression: "SNAPPY", encoding: "RLE" },
+    createdAt: { type: "TIMESTAMP_MILLIS", compression: "SNAPPY" },
+    source: { type: "UTF8", compression: "SNAPPY" },
   });
 
   try {
