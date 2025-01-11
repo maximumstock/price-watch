@@ -13,9 +13,9 @@ import * as crypto from "crypto";
 import "../../shared/src/lib.d";
 import { InputEvent, validateInputEvent } from "../../shared/src/event";
 import { Configuration, readConfigFromEnv } from "../../shared/src/config";
-import { ParquetSchema, ParquetTransformer } from "parquets";
 import { gzipSync } from "zlib";
-import { Readable } from "stream";
+import { Readable, Stream } from "stream";
+import { ParquetSchema, ParquetTransformer } from "@dsnp/parquetjs";
 
 /**
  * The limit on the number of items we store in a hash string in DynamoDB.
@@ -68,12 +68,12 @@ export const handler = async (
   );
 
   if (inputEvent.storeForAnalytics && newOffers.length !== 0) {
-    await storeOffersForAnalytics(
-      configuration,
-      s3Client,
-      inputEvent,
-      newOffers
-    );
+    // await storeOffersForAnalytics(
+    //   configuration,
+    //   s3Client,
+    //   inputEvent,
+    //   newOffers
+    // );
     await storeParquetOffersForAnalytics(
       configuration,
       s3Client,
@@ -432,38 +432,44 @@ async function storeParquetOffersForAnalytics(
 ) {
   console.log(`[Info] Beginning analytics parquet storage dump...`);
   const parquetSchema = new ParquetSchema({
-    id: { type: "UTF8" },
-    innerHtml: { type: "UTF8" },
-    srcUrl: { type: "UTF8" },
-    thumbnailUrl: { type: "UTF8" },
-    location: { type: "UTF8" },
-    productName: { type: "UTF8" },
-    description: { type: "UTF8" },
-    price: { type: "UTF8" },
-    priceRaw: { type: "UTF8" },
-    timestamp: { type: "UTF8" },
-    createdAt: { type: "TIMESTAMP_MILLIS" },
-    source: { type: "UTF8", optional: true },
+    id: { type: "UTF8", compression: "SNAPPY" },
+    innerHtml: { type: "UTF8", compression: "SNAPPY" },
+    srcUrl: { type: "UTF8", compression: "SNAPPY" },
+    thumbnailUrl: { type: "UTF8", compression: "SNAPPY" },
+    location: { type: "UTF8", compression: "SNAPPY" },
+    productName: { type: "UTF8", compression: "SNAPPY" },
+    description: { type: "UTF8", compression: "SNAPPY" },
+    price: { type: "UTF8", compression: "SNAPPY" },
+    priceRaw: { type: "UTF8", compression: "SNAPPY" },
+    timestamp: { type: "UTF8", compression: "SNAPPY" },
+    createdAt: {
+      type: "TIMESTAMP_MILLIS",
+      compression: "SNAPPY",
+      encoding: "RLE",
+    },
+    source: { type: "UTF8", compression: "SNAPPY", encoding: "RLE" },
   });
 
   try {
     const prefix =
       inputEvent.analyticsS3Prefix ??
       `kleinanzeigen/${inputEvent.analyticsS3Prefix ?? inputEvent.searchQuery}`;
-    const filename = `${new Date().toISOString()}.jsonl.gz`;
+    const filename = `${new Date().toISOString()}.parquet`;
     const key = `${prefix}/${filename}`;
 
+    // todo: write a unit test that verifies this shit
+    // todo: use a more up-to-date parquet implementation
     const newOfferStream = Readable.from(newOffers);
     const parquetStream = newOfferStream.pipe(
       new ParquetTransformer(parquetSchema)
     );
+    const buffer = await streamToBuffer(parquetStream);
 
-    // todo: add gzip stream
-    // todo: use a more up-to-date parquet implementation
     const command = new PutObjectCommand({
       Bucket: configuration.analyticsS3Bucket,
       Key: key,
-      Body: parquetStream,
+      Body: buffer,
+      ContentType: "application/vnd.apache.parquet",
     });
     const response = await s3Client.send(command);
 
@@ -475,4 +481,14 @@ async function storeParquetOffersForAnalytics(
       `[error] Encountered ${JSON.stringify(e)} during parquet analytics dump`
     );
   }
+}
+
+async function streamToBuffer(stream: Stream): Promise<Buffer> {
+  return new Promise<Buffer>((resolve, reject) => {
+    const _buf: any[] = [];
+
+    stream.on("data", (chunk) => _buf.push(chunk));
+    stream.on("end", () => resolve(Buffer.concat(_buf)));
+    stream.on("error", (err) => reject(err));
+  });
 }

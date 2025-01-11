@@ -7,6 +7,9 @@
     "test": "jest src/index.test.ts",
     "build": "esbuild src/index.ts --bundle --minify --platform=node --target=es2020 --outfile=dist/index.cjs"
   },
+  "engines": {
+    "node": "18"
+  },
   "author": "",
   "license": "MIT",
   "devDependencies": {
@@ -23,9 +26,9 @@
     "@aws-sdk/client-s3": "^3.540.0",
     "@aws-sdk/client-ses": "^3.540.0",
     "@aws-sdk/lib-dynamodb": "^3.540.0",
+    "@dsnp/parquetjs": "^1.8.5",
     "aws-sdk": "^2.1587.0",
     "cheerio": "^1.0.0-rc.12",
-    "parquets": "^0.10.10",
     "zod": "^3.24.1"
   },
   "type": "commonjs"
