@@ -271,6 +271,8 @@ export function parseOffers(rawBody: string): Offer[] {
       return;
     }
 
+    const priceRaw = price.split("€")[0].trim();
+
     offers.push({
       id,
       srcUrl: `https://kleinanzeigen.de${elem.attribs[
@@ -282,7 +284,7 @@ export function parseOffers(rawBody: string): Offer[] {
       location,
       productName,
       description,
-      price: price.split("€")[0].trim() + " €",
+      price: `${priceRaw} €`,
       priceRaw: price,
       createdAt: now,
       source: "kleinanzeigen",
