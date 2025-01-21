@@ -13,7 +13,6 @@ import * as crypto from "crypto";
 import "../../shared/src/lib.d";
 import { InputEvent, validateInputEvent } from "../../shared/src/event";
 import { Configuration, readConfigFromEnv } from "../../shared/src/config";
-import { gzipSync } from "zlib";
 import { Readable, Stream } from "stream";
 import { ParquetSchema, ParquetTransformer } from "@dsnp/parquetjs";
 
@@ -68,12 +67,6 @@ export const handler = async (
   );
 
   if (inputEvent.storeForAnalytics && newOffers.length !== 0) {
-    // await storeOffersForAnalytics(
-    //   configuration,
-    //   s3Client,
-    //   inputEvent,
-    //   newOffers
-    // );
     await storeParquetOffersForAnalytics(
       configuration,
       s3Client,
@@ -392,36 +385,6 @@ async function fetchSeenOffersSet(
 
 function notifySqs(sqsClient: any, newOffers: Offer[]) {
   throw new Error("Function not implemented.");
-}
-
-async function storeOffersForAnalytics(
-  configuration: Configuration,
-  s3Client: S3Client,
-  inputEvent: InputEvent,
-  newOffers: Offer[]
-) {
-  console.log(`[Info] Beginning analytics storage dump...`);
-
-  const jsonLineString = newOffers.map((o) => JSON.stringify(o)).join("\n");
-  const zipped = gzipSync(jsonLineString);
-
-  // TODO parquet
-  const prefix =
-    inputEvent.analyticsS3Prefix ??
-    `kleinanzeigen/${inputEvent.analyticsS3Prefix ?? inputEvent.searchQuery}`;
-  const filename = `${new Date().toISOString()}.jsonl.gz`;
-  const key = `${prefix}/${filename}`;
-
-  const command = new PutObjectCommand({
-    Bucket: configuration.analyticsS3Bucket,
-    Key: key,
-    Body: zipped,
-  });
-  const response = await s3Client.send(command);
-
-  console.log(
-    `[Info] Finished analytics storage dump with status code ${response.$metadata.httpStatusCode}`
-  );
 }
 
 async function storeParquetOffersForAnalytics(
