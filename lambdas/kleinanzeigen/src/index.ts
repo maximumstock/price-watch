@@ -293,7 +293,9 @@ export function parseOffers(rawBody: string): Offer[] {
 
   console.log(`[Info] Found ${offers.length} offers`);
 
-  return offers;
+  return offers.filter(
+    (o) => o.description && o.productName && o.price && o.createdAt
+  );
 }
 
 type Url = string;
