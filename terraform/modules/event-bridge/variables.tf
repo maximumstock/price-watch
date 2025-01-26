@@ -20,6 +20,9 @@ variable "tasks" {
     rateInMinutes : string,
     storeForAnalytics : bool,
     analyticsS3Prefix : optional(string),
-    notifications : list(any)
+    notifications : optional(list(object({
+      type : string,
+      targets : list(string)
+    })))
   }))
 }
