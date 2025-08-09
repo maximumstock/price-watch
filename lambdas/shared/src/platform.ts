@@ -17,7 +17,11 @@ import {
   GetCommand,
   PutCommand,
 } from "@aws-sdk/lib-dynamodb";
-import { ParquetSchema, ParquetTransformer } from "@dsnp/parquetjs";
+import {
+  ParquetFieldBuilder,
+  ParquetSchema,
+  ParquetTransformer,
+} from "@dsnp/parquetjs";
 import { Context } from "aws-lambda";
 
 /** Generic builder that takes some providers and can construct a closure that we pass to AWS Lambda */
@@ -27,6 +31,9 @@ export const createAWSLambdaHandler: LambdaBuilder = (
   // return a Lambda handler that AWS Lambda executes
   return async (input: any, context?: Context) => {
     const configuration = readConfigFromEnv();
+    console.log(
+      `Read configuration from environment: ${JSON.stringify(configuration)}`
+    );
     const inputEvent = validateInputEvent(input);
     console.log("New Event:", JSON.stringify(input, null, 2));
 
@@ -174,18 +181,56 @@ async function storeParquetOffersForAnalytics(
 ) {
   console.log(`[Info] Beginning analytics parquet storage dump...`);
   const parquetSchema = new ParquetSchema({
-    id: { type: "UTF8", compression: "SNAPPY" },
-    innerHtml: { type: "UTF8", compression: "SNAPPY" },
-    srcUrl: { type: "UTF8", compression: "SNAPPY" },
-    thumbnailUrl: { type: "UTF8", compression: "SNAPPY" },
-    location: { type: "UTF8", compression: "SNAPPY" },
-    productName: { type: "UTF8", compression: "SNAPPY" },
-    description: { type: "UTF8", compression: "SNAPPY" },
-    price: { type: "UTF8", compression: "SNAPPY" },
-    priceRaw: { type: "UTF8", compression: "SNAPPY" },
-    timestamp: { type: "UTF8", compression: "SNAPPY" },
-    createdAt: { type: "TIMESTAMP_MILLIS", compression: "SNAPPY" },
-    source: { type: "UTF8", compression: "SNAPPY" },
+    id: ParquetFieldBuilder.createStringField(false, {
+      type: "UTF8",
+      compression: "SNAPPY",
+    }),
+    srcUrl: ParquetFieldBuilder.createStringField(false, {
+      type: "UTF8",
+      compression: "SNAPPY",
+    }),
+    thumbnailUrl: ParquetFieldBuilder.createStringField(false, {
+      type: "UTF8",
+      compression: "SNAPPY",
+    }),
+    location: ParquetFieldBuilder.createStringField(false, {
+      type: "UTF8",
+      compression: "SNAPPY",
+    }),
+    productName: ParquetFieldBuilder.createStringField(false, {
+      type: "UTF8",
+      compression: "SNAPPY",
+    }),
+    description: ParquetFieldBuilder.createStringField(false, {
+      type: "UTF8",
+      compression: "SNAPPY",
+    }),
+    raw: ParquetFieldBuilder.createStructField({
+      priceRaw: ParquetFieldBuilder.createStringField(false, {
+        type: "UTF8",
+        compression: "SNAPPY",
+      }),
+      innerHtml: ParquetFieldBuilder.createStringField(false, {
+        type: "UTF8",
+        compression: "SNAPPY",
+      }),
+    }),
+    price: ParquetFieldBuilder.createStringField(false, {
+      type: "UTF8",
+      compression: "SNAPPY",
+    }),
+    timestamp: ParquetFieldBuilder.createStringField(false, {
+      type: "UTF8",
+      compression: "SNAPPY",
+    }),
+    createdAt: ParquetFieldBuilder.createTimestampField(false, {
+      type: "TIMESTAMP_MILLIS",
+      compression: "SNAPPY",
+    }),
+    source: ParquetFieldBuilder.createStringField(false, {
+      type: "UTF8",
+      compression: "SNAPPY",
+    }),
   });
 
   try {
@@ -218,6 +263,7 @@ async function storeParquetOffersForAnalytics(
     console.error(
       `[error] Encountered ${JSON.stringify(e)} during parquet analytics dump`
     );
+    console.error(e);
   }
 }
 
