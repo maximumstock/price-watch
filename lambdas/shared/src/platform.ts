@@ -5,7 +5,6 @@ import {
   LambdaBuilder,
   LambdaHandler,
   LambdaInput,
-  LambdaResult,
   validateInputEvent,
 } from "./lambda";
 
@@ -45,46 +44,36 @@ export const createAWSLambdaHandler: LambdaBuilder = (
     }
 
     // Post-processing
-    switch (result.offerStore.type) {
-      case "dynamodb":
-        await updateOfferStoreDynamoDb(
-          result.parsedOffers,
-          result.offerStore.tableName,
-          result.offerStore.tablePartitionKey
-        );
-        break;
-      default:
-        throw new Error(
-          `Encountered unknown store type ${result.offerStore.type}`
-        );
-    }
+    const newOffers = await updateOfferStoreDynamoDb(
+      result.parsedOffers,
+      result.offerStore.tableName,
+      result.offerStore.tablePartitionKey
+    );
 
-    if (result.parsedOffers.length === 0) {
+    if (newOffers) {
       return;
     }
 
-    // TODO: handle storing analytics
     if (inputEvent.storeForAnalytics) {
       const s3Client = new S3Client();
       await storeParquetOffersForAnalytics(
         configuration,
         s3Client,
         inputEvent,
-        result.parsedOffers
+        newOffers
       );
     }
 
-    // TODO: handle sending notifications
-    await handleNotifications(inputEvent, configuration, result);
+    await handleNotifications(inputEvent, configuration, newOffers);
   };
 };
 
 async function handleNotifications(
   inputEvent: LambdaInput,
   configuration: Configuration,
-  result: LambdaResult
+  newOffers: HashedOffer[]
 ) {
-  if (result.parsedOffers.length === 0) {
+  if (newOffers.length === 0) {
     return;
   }
 
@@ -102,7 +91,7 @@ async function handleNotifications(
     configuration,
     sesClient,
     emailTargets,
-    result.parsedOffers
+    newOffers
   );
 }
 
@@ -331,7 +320,7 @@ async function updateOfferStoreDynamoDb(
   parsedOffers: HashedOffer[],
   tableName: string,
   tablePartitionKey: string
-) {
+): Promise<HashedOffer[]> {
   const dynamoDBClient = DynamoDBDocumentClient.from(new DynamoDBClient());
   const existingHashes = await fetchSeenOffersSet(
     dynamoDBClient,
@@ -362,4 +351,6 @@ async function updateOfferStoreDynamoDb(
     newHashes
   );
   console.log(`[Info] Wrote ${newHashes.length} new offers`);
+
+  return newOffers;
 }
