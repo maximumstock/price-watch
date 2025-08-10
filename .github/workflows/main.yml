@@ -70,16 +70,16 @@ jobs:
           role-to-assume: ${{ secrets.CI_AWS_ROLE_ARN }}
 
       - name: Install NPM
-        run: cd ./lambdas/${{matrix.lambda}} && npm ci
+        run: npm ci
 
       - name: Test Lambda
-        run: cd ./lambdas/${{matrix.lambda}} && npm run test
+        run: cd ./packages/${{matrix.lambda}} && npm run test
 
       - name: Build Lambda
-        run: cd ./lambdas/${{matrix.lambda}} && npm run build
+        run: cd ./packages/${{matrix.lambda}} && npm run build
 
       - name: Zip Lambda
-        run: zip -j ./lambdas/${{matrix.lambda}}.zip ./lambdas/${{matrix.lambda}}/dist/index.cjs
+        run: zip -j ./packages/${{matrix.lambda}}.zip ./packages/${{matrix.lambda}}/dist/index.cjs
 
       - name: Deploy Lambda
-        run: aws lambda update-function-code --function-name=price-watch-lambda-${{matrix.lambda}}-development --zip-file=fileb://lambdas/${{matrix.lambda}}.zip
+        run: aws lambda update-function-code --function-name=price-watch-lambda-${{matrix.lambda}}-development --zip-file=fileb://packages/${{matrix.lambda}}.zip

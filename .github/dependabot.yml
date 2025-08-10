@@ -1,7 +1,8 @@
 version: 2
 updates:
 - package-ecosystem: npm
-  directory: "lambdas"
+  directories: 
+    - "packages/*"
   schedule:
     interval: daily
     time: '08:00'
