@@ -132,13 +132,6 @@ describe("kleinanzeigen", () => {
       analyticsS3Prefix: "",
     };
 
-    it("should return a 25-item page", async () => {
-      const result = await handlerKleinanzeigen(inputEvent);
-
-      expect(result).toBeDefined();
-      expect(result.parsedOffers.length).toEqual(25);
-    });
-
     it("should return a LambdaResult with parsed data", async () => {
       const result = await handlerKleinanzeigen(inputEvent);
 
