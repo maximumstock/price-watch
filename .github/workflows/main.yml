@@ -82,4 +82,4 @@ jobs:
         run: zip -j ./packages/${{matrix.lambda}}.zip ./packages/${{matrix.lambda}}/dist/index.cjs
 
       - name: Deploy Lambda
-        run: aws lambda update-function-code --function-name=price-watch-lambda-${{matrix.lambda}}-development --zip-file=fileb://packages/${{matrix.lambda}}.zip
+        run: aws lambda update-function-code --function-name=price-watch-lambda-${{matrix.lambda}}-development --zip-file=fileb://packages/${{matrix.lambda}}.zip > /dev/null # We don't want to print ARNs, environment variables, etc. in our CI logs
