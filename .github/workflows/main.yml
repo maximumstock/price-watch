@@ -5,54 +5,53 @@ on:
       - main
 
 jobs:
-  terraform-dev:
-    permissions:
-      id-token: write # Needed for GitHub OIDC
-    runs-on: ubuntu-latest
-    env:
-      TF_PATH: "./terraform/environments/development"
-      TF_VAR_source_email: ${{ secrets.TF_VAR_SOURCE_EMAIL }}
-      TF_VAR_destination_emails: "${{ secrets.TF_VAR_DESTINATION_EMAILS }}"
-    if: "!contains(github.event.head_commit.message , 'ci skip')"
-    steps:
-      - uses: actions/checkout@v4
+  # terraform-dev:
+  #   permissions:
+  #     id-token: write # Needed for GitHub OIDC
+  #   runs-on: ubuntu-latest
+  #   env:
+  #     TF_PATH: "./terraform/environments/development"
+  #     TF_VAR_source_email: ${{ secrets.TF_VAR_SOURCE_EMAIL }}
+  #   if: "!contains(github.event.head_commit.message , 'ci skip')"
+  #   steps:
+  #     - uses: actions/checkout@v4
 
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          audience: sts.amazonaws.com
-          aws-region: ${{ secrets.TF_VAR_aws_region }}
-          role-to-assume: ${{ secrets.CI_AWS_ROLE_ARN }}
+  #     - name: Configure AWS Credentials
+  #       uses: aws-actions/configure-aws-credentials@v4
+  #       with:
+  #         audience: sts.amazonaws.com
+  #         aws-region: ${{ secrets.TF_VAR_aws_region }}
+  #         role-to-assume: ${{ secrets.CI_AWS_ROLE_ARN }}
 
-      - uses: hashicorp/setup-terraform@v3
+  #     - uses: hashicorp/setup-terraform@v3
 
-      - name: Terraform fmt
-        id: fmt
-        run: terraform -chdir=$TF_PATH fmt -check
-        continue-on-error: true
+  #     - name: Terraform fmt
+  #       id: fmt
+  #       run: terraform -chdir=$TF_PATH fmt -check
+  #       continue-on-error: true
 
-      - name: Terraform Init
-        id: init
-        run: terraform -chdir=$TF_PATH init
+  #     - name: Terraform Init
+  #       id: init
+  #       run: terraform -chdir=$TF_PATH init
 
-      - name: Terraform Validate
-        id: validate
-        run: terraform -chdir=$TF_PATH validate
+  #     - name: Terraform Validate
+  #       id: validate
+  #       run: terraform -chdir=$TF_PATH validate
 
-      - name: Terraform Plan
-        id: plan
-        run: terraform -chdir=$TF_PATH plan
+  #     - name: Terraform Plan
+  #       id: plan
+  #       run: terraform -chdir=$TF_PATH plan
 
-      - name: Terraform Apply
-        id: apply
-        run: terraform -chdir=$TF_PATH apply -auto-approve
+  #     - name: Terraform Apply
+  #       id: apply
+  #       run: terraform -chdir=$TF_PATH apply -auto-approve
 
   deploy-lambdas-dev:
     permissions:
       id-token: write # Needed for GitHub OIDC
     if: "!contains(github.event.head_commit.message , 'ci skip')"
     runs-on: ubuntu-latest
-    needs: [terraform-dev]
+    # needs: [terraform-dev]
     strategy:
       matrix:
         lambda: [kleinanzeigen]
@@ -61,7 +60,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -70,8 +69,14 @@ jobs:
           aws-region: eu-central-1
           role-to-assume: ${{ secrets.CI_AWS_ROLE_ARN }}
 
+      - name: Install NPM
+        run: cd ./lambdas/${{matrix.lambda}} && npm ci
+
+      - name: Test Lambda
+        run: cd ./lambdas/${{matrix.lambda}} && npm run test
+
       - name: Build Lambda
-        run: cd ./lambdas/${{matrix.lambda}} && npm ci && npm run build
+        run: cd ./lambdas/${{matrix.lambda}} && npm run build
 
       - name: Zip Lambda
         run: zip -j ./lambdas/${{matrix.lambda}}.zip ./lambdas/${{matrix.lambda}}/dist/index.cjs
