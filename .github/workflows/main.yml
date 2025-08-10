@@ -1,5 +1,6 @@
 name: Main
 on:
+  pull_request:
   push:
     branches:
       - main
@@ -46,7 +47,7 @@ jobs:
   #       id: apply
   #       run: terraform -chdir=$TF_PATH apply -auto-approve
 
-  deploy-lambdas-dev:
+  build-and-deploy-dev:
     permissions:
       id-token: write # Needed for GitHub OIDC
     if: "!contains(github.event.head_commit.message , 'ci skip')"
@@ -62,13 +63,6 @@ jobs:
         with:
           node-version: 20
 
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          audience: sts.amazonaws.com
-          aws-region: eu-central-1
-          role-to-assume: ${{ secrets.CI_AWS_ROLE_ARN }}
-
       - name: Install NPM
         run: npm ci
 
@@ -81,5 +75,14 @@ jobs:
       - name: Zip Lambda
         run: zip -j ./packages/${{matrix.lambda}}.zip ./packages/${{matrix.lambda}}/dist/index.cjs
 
+      - name: Configure AWS Credentials
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          audience: sts.amazonaws.com
+          aws-region: eu-central-1
+          role-to-assume: ${{ secrets.CI_AWS_ROLE_ARN }}
+
       - name: Deploy Lambda
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         run: aws lambda update-function-code --function-name=price-watch-lambda-${{matrix.lambda}}-development --zip-file=fileb://packages/${{matrix.lambda}}.zip > /dev/null # We don't want to print ARNs, environment variables, etc. in our CI logs
