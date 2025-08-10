@@ -1,3 +1,4 @@
 node_modues
 *.zip
 terraform/**/manifest.json
+notes.md
