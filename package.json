@@ -1,0 +1,11 @@
+{
+  "name": "price-watch",
+  "version": "1.0.0",
+  "description": "A serverless scraping & notification platform to scan web pages or APIs for changes.",
+  "author": "",
+  "license": "MIT",
+  "workspaces": [
+    "packages/shared",
+    "packages/kleinanzeigen"
+  ]
+}
