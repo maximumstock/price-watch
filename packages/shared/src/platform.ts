@@ -1,12 +1,5 @@
 import { Readable, Stream } from "stream";
 import { Configuration, readConfigFromEnv } from "./config";
-import {
-  HashedOffer,
-  LambdaBuilder,
-  LambdaHandler,
-  LambdaInput,
-  validateInputEvent,
-} from "./lambda";
 
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
@@ -22,12 +15,37 @@ import {
   ParquetTransformer,
 } from "@dsnp/parquetjs";
 import { Context } from "aws-lambda";
+import {
+  HashedOfferSchema,
+  LambdaInputSchema,
+  LambdaResultSchema,
+  NotificationSchema,
+  OfferSchema,
+  OfferStoreSchema,
+} from "./schemas";
+import { z } from "zod";
 
-/** Generic builder that takes some providers and can construct a closure that we pass to AWS Lambda */
-export const createAWSLambdaHandler: LambdaBuilder = (
-  handler: LambdaHandler
-) => {
-  // return a Lambda handler that AWS Lambda executes
+/**
+ * For each connected watchable platform we want to be able to build
+ * a closure of type {@link AWSLambda} so that AWS Lambda can run it.
+ *
+ * For each platform, we provide a {@link PriceWatchHandler} that handles the platform details
+ * and all platform features, ie. notifications, storing collected data for analytics, etc.,
+ * are handled centrally.
+ *
+ * Returns a closure that we can pass to AWS Lambda to run.
+ * This closure does everything from fetching, parsing and post-processing
+ */
+export type LambdaBuilder = (handler: PriceWatchHandler) => AWSLambda;
+
+type AWSLambda = (input: any, context?: Context) => void;
+
+export type PriceWatchHandler = (
+  inputEvent: LambdaInput,
+  context?: Context
+) => Promise<LambdaResult>;
+
+export const lambdaBuilder: LambdaBuilder = (handler: PriceWatchHandler) => {
   return async (input: any, context?: Context) => {
     const configuration = readConfigFromEnv();
     console.log(
@@ -67,6 +85,27 @@ export const createAWSLambdaHandler: LambdaBuilder = (
     await handleNotifications(inputEvent, configuration, newOffers);
   };
 };
+
+export type LambdaResult = z.infer<typeof LambdaResultSchema>;
+
+export type Notification = z.infer<typeof NotificationSchema>;
+
+export type LambdaInput = z.infer<typeof LambdaInputSchema>;
+
+function validateInputEvent(input: any): LambdaInput {
+  const result = LambdaInputSchema.safeParse(input);
+  if (!result.success) {
+    const error = new Error("Invalid LambdaInput");
+
+    error.cause = result.error.cause;
+    error.stack = result.error.stack;
+    error.name = result.error.name;
+
+    throw error;
+  } else {
+    return result.data;
+  }
+}
 
 async function handleNotifications(
   inputEvent: LambdaInput,
@@ -354,3 +393,9 @@ async function updateOfferStoreDynamoDb(
 
   return newOffers;
 }
+
+export type Offer = z.infer<typeof OfferSchema>;
+
+export type HashedOffer = z.infer<typeof HashedOfferSchema>;
+
+export type OfferStore = z.infer<typeof OfferStoreSchema>;

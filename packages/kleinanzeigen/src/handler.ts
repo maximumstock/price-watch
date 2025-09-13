@@ -5,13 +5,14 @@ import {
   HashedOffer,
   LambdaInput,
   LambdaResult,
-  OfferSource,
-} from "../../shared/src/lambda";
-import { LambdaHandler, Offer } from "../../shared/src/lambda";
+  PriceWatchHandler,
+} from "../../shared/src/platform";
+import { Offer } from "../../shared/src/platform";
 import { cleanString, getRandomUserAgent } from "../../shared/src/common";
 import { DYNAMODB_TABLE_NAME } from "../../shared/src/platform";
+import { OfferSource } from "../../shared/src/schemas";
 
-export const handlerKleinanzeigen: LambdaHandler = async (
+export const handlerKleinanzeigen: PriceWatchHandler = async (
   inputEvent: LambdaInput
 ): Promise<LambdaResult> => {
   const DYNAMODB_TABLE_PARTITION_KEY = `${OfferSource.KLEINANZEIGEN}-${inputEvent.searchQuery}`;

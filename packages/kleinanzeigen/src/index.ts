@@ -1,4 +1,4 @@
-import { createAWSLambdaHandler } from "../../shared/src/platform";
+import { lambdaBuilder } from "../../shared/src/platform";
 import { handlerKleinanzeigen } from "./handler";
 
-export const handler = createAWSLambdaHandler(handlerKleinanzeigen);
+export const handler = lambdaBuilder(handlerKleinanzeigen);

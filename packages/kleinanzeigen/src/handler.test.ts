@@ -1,11 +1,7 @@
 import fs from "fs";
-import {
-  HashedOffer,
-  HashedOfferSchema,
-  LambdaInput,
-  OfferSource,
-} from "../../shared/src/lambda";
+import { HashedOffer, LambdaInput } from "../../shared/src/platform";
 import { handlerKleinanzeigen, parseOffers } from "./handler";
+import { HashedOfferSchema, OfferSource } from "../../shared/src/schemas";
 
 describe("kleinanzeigen", () => {
   const fixture: string = fs
